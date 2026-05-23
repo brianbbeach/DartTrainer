@@ -651,26 +651,32 @@
     box-shadow: none;
   }
 
-  .opp-action-display { /* see below — replaces former opp-turn-display */ }
-  .opp-action-display {
+  .opp-action-notification {
     text-align: center;
-    padding: 28px 12px 24px;
-    cursor: pointer;
-    transition: background 0.15s;
-    border-radius: 8px;
-    margin: -4px;
+    padding: 18px 12px 14px;
   }
-  .opp-action-display:hover, .opp-action-display:active {
-    background: var(--bg-3);
-  }
-  .opp-action-display .pad-prompt { margin-bottom: 14px; }
-  .opp-action-display .tap-hint {
+  .opp-action-label {
     font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-4);
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.15em;
+    color: var(--text-3);
+    margin-bottom: 12px;
   }
+  .opp-action-label .opp-turn { color: var(--red); }
+  .opp-action-label .thrower-name { color: var(--text-2); font-weight: 600; }
+  .opp-action-score {
+    font-family: var(--display);
+    font-size: 84px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 0.9;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  .opp-action-score.bust { color: var(--red); font-size: 56px; }
+  .opp-action-score.miss { color: var(--text-3); font-size: 56px; }
+  .opp-action-score.notable { color: var(--gold); }
 
   .end-banner {
     text-align: center;
@@ -888,6 +894,8 @@
     .last-throw.bust .lt-value, .last-throw.miss .lt-value { font-size: 18px; }
     .end-banner .result { font-size: 56px; }
     .notable-flash-text { font-size: 72px; }
+    .opp-action-score { font-size: 64px; }
+    .opp-action-score.bust, .opp-action-score.miss { font-size: 44px; }
     .qk { font-size: 11px; padding: 8px 0; }
     .np { font-size: 20px; padding: 12px 0; }
     .format-tab { font-size: 10px; padding: 10px 4px; }
@@ -1652,14 +1660,15 @@ function renderWaitingPad() {
   let action = 'threw';
   if (d.isBust) action = 'busted';
   else if (d.isMiss) action = 'missed';
-  let scoreText = '';
-  if (!d.isBust && !d.isMiss) scoreText = ` <span style="color:var(--text);font-weight:600">${d.score}</span>`;
-  const notableTag = d.isNotable && !d.isBust && !d.isMiss
-    ? ` <span class="notable-tag" style="color:var(--gold)">— ${d.notableValue}</span>` : '';
+  let scoreDisplay = d.score;
+  let scoreCls = '';
+  if (d.isBust) { scoreDisplay = 'BUST'; scoreCls = 'bust'; }
+  else if (d.isMiss) { scoreDisplay = 'MISS'; scoreCls = 'miss'; }
+  else if (d.isNotable) scoreCls = 'notable';
   pad.innerHTML = `
-    <div class="opp-action-display" onclick="skipOppLastThrow()">
-      <div class="pad-prompt"><span class="opp-turn">●</span> ${throwerLabel} ${action}${scoreText}${notableTag}</div>
-      <div class="tap-hint">Tap to continue</div>
+    <div class="opp-action-notification">
+      <div class="opp-action-label"><span class="opp-turn">●</span> ${throwerLabel} ${action}</div>
+      <div class="opp-action-score ${scoreCls}">${scoreDisplay}</div>
     </div>
   `;
 }
@@ -1667,9 +1676,8 @@ function renderWaitingPad() {
 function renderThinkingPad() {
   const pad = document.getElementById('pad-area');
   pad.innerHTML = `
-    <div class="opp-action-display" onclick="skipOppLastThrow()">
-      <div class="pad-prompt"><span class="opp-turn">●</span> ${match.opponent} is throwing...</div>
-      <div class="tap-hint">Tap to reveal</div>
+    <div class="opp-action-notification">
+      <div class="opp-action-label"><span class="opp-turn">●</span> ${match.opponent} is throwing...</div>
     </div>
   `;
 }
@@ -1785,23 +1793,7 @@ function playOpponentTurn() {
     match.autoPlayTimer = null;
     match.padLocked = false;
     renderMatch();
-  }, 2400);
-}
-
-function skipOppLastThrow() {
-  if (!match || match.status !== 'in_progress') return;
-  // If pad is locked in the hold state, unlock it and resume user input
-  if (match.padLocked) {
-    if (match.autoPlayTimer) { clearTimeout(match.autoPlayTimer); match.autoPlayTimer = null; }
-    match.padLocked = false;
-    renderMatch();
-    return;
-  }
-  // Otherwise, we're in the brief "thinking" window before opp's turn — fire it now
-  if (match.currentThrower === 'opponent') {
-    if (match.autoPlayTimer) { clearTimeout(match.autoPlayTimer); match.autoPlayTimer = null; }
-    playOpponentTurn();
-  }
+  }, 1500);
 }
 
 function advanceThrower() {
