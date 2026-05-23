@@ -886,6 +886,42 @@
     100% { opacity: 0; transform: scale(1.2); }
   }
 
+  /* === 69 EASTER EGG === */
+  /* Any score ending in 69 turns pink and gets a heart outline drawn around it.
+     Inside joke for the regulars. Built with an inline SVG background so it
+     scales with the surrounding font-size and overlays cleanly on top of any
+     other color rule (e.g. bust red, miss gray are inherited from parent).  */
+  .heart-num {
+    color: #f472b6;  /* pink-400 */
+    position: relative;
+    display: inline-block;
+    padding: 0.08em 0.42em 0.10em;
+    z-index: 0;
+  }
+  .heart-num::before {
+    content: '';
+    position: absolute;
+    inset: -0.30em -0.05em -0.18em -0.05em;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 90'><path d='M50 84 C 45 78 5 58 5 30 C 5 14 18 5 30 8 C 42 11 48 20 50 26 C 52 20 58 11 70 8 C 82 5 95 14 95 30 C 95 58 55 78 50 84 Z' fill='none' stroke='%23f472b6' stroke-width='5' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+    pointer-events: none;
+    z-index: -1;
+  }
+  /* When a 69-ending number appears inside an already-colored container
+     (bust/miss/notable), the heart and text still read pink consistently. */
+  .last-throw.bust .heart-num,
+  .last-throw.miss .heart-num,
+  .opp-action-score.bust .heart-num,
+  .opp-action-score.miss .heart-num,
+  .turn-line.bust .heart-num,
+  .turn-line.miss .heart-num,
+  .turn-line.checkout .heart-num,
+  .turn-line.notable .heart-num,
+  .score-display.warn .heart-num,
+  .score-display.ok .heart-num { color: #f472b6; }
+
   @media (max-width: 480px) {
     .screen { padding: 16px 14px 24px; }
     .remaining { font-size: 54px; }
@@ -1065,6 +1101,15 @@ const THROW_ORDERS = [
   { key: 'me',       label: 'I throw first', icon: '▲' },
   { key: 'opponent', label: 'Opponent first', icon: '▼' }
 ];
+
+// Render a numeric score. Anything ending in "69" — the inside joke — gets
+// pink-treated and wrapped in a heart outline. Pass anything else through
+// untouched. Accepts a number or stringy value; returns an HTML fragment.
+function fmtScore(value) {
+  const s = String(value);
+  if (!/69$/.test(s)) return s;
+  return `<span class="heart-num">${s}</span>`;
+}
 
 // ============================================================
 // STATE
@@ -1541,6 +1586,7 @@ function startMatch(teamKey) {
     userLastThrow: null,
     padLocked: false,
     autoPlayTimer: null,
+    afterUserNotableFlash: false,
     endHandled: false
   };
 
@@ -1567,8 +1613,8 @@ function renderMatch() {
   document.getElementById('user-col').classList.toggle('active', match.currentThrower === 'user');
   document.getElementById('opp-col').classList.toggle('active', match.currentThrower === 'opponent');
 
-  document.getElementById('user-remaining').textContent = match.userScore;
-  document.getElementById('opp-remaining').textContent = match.opponentScore;
+  document.getElementById('user-remaining').innerHTML = fmtScore(match.userScore);
+  document.getElementById('opp-remaining').innerHTML = fmtScore(match.opponentScore);
 
   document.getElementById('user-turns').innerHTML = renderTurnsList(match.userTurns, false);
   document.getElementById('opp-turns').innerHTML = renderTurnsList(match.revealedOppTurns, true);
@@ -1578,11 +1624,12 @@ function renderMatch() {
     const el = document.getElementById(elId);
     if (!el) return;
     if (!d) { el.className = 'last-throw'; el.innerHTML = ''; return; }
-    let display = d.score;
+    let display;
     let extraCls = '';
     if (d.isBust) { display = 'BUST'; extraCls = 'bust'; }
     else if (d.isMiss) { display = 'MISS'; extraCls = 'miss'; }
-    else if (d.isCheckout) display = `${d.score} ✓`;
+    else if (d.isCheckout) display = `${fmtScore(d.score)} ✓`;
+    else display = fmtScore(d.score);
     el.className = `last-throw visible ${extraCls}`.trim();
     el.innerHTML = `<div class="lt-label">Last Throw:</div><div class="lt-value">${display}</div>`;
   };
@@ -1603,7 +1650,9 @@ function renderMatch() {
       && match.currentThrower === 'opponent'
       && !match.padLocked
       && !match.autoPlayTimer) {
-    scheduleOpponentAutoPlay(450);
+    const delay = match.afterUserNotableFlash ? 1500 : 450;
+    match.afterUserNotableFlash = false;
+    scheduleOpponentAutoPlay(delay);
   }
 }
 
@@ -1615,11 +1664,11 @@ function renderTurnsList(turns, showThrower) {
     const realIdx = startIdx + idx;
     const isLatest = realIdx === turns.length - 1;
     let cls = '';
-    let label = t.score;
+    let label;
     if (t.type === 'bust') { cls = 'bust'; label = 'BUST'; }
     else if (t.type === 'miss') { cls = 'miss'; label = 'MISS'; }
-    else if (t.type === 'checkout') { cls = 'checkout'; label = `${t.score} ✓`; }
-    else if (t.notable) { cls = 'notable'; }
+    else if (t.type === 'checkout') { cls = 'checkout'; label = `${fmtScore(t.score)} ✓`; }
+    else { if (t.notable) cls = 'notable'; label = fmtScore(t.score); }
     const thrower = showThrower && t.thrower ? `<span class="who">${t.thrower.split(' ')[0]}</span>` : '';
     return `<div class="turn-line ${cls} ${isLatest ? 'latest' : ''}">
       <span class="tn">${String(realIdx + 1).padStart(2, '0')}</span>
@@ -1697,11 +1746,11 @@ function renderWaitingPad() {
   let action = 'threw';
   if (d.isBust) action = 'busted';
   else if (d.isMiss) action = 'missed';
-  let scoreDisplay = d.score;
+  let scoreDisplay;
   let scoreCls = '';
   if (d.isBust) { scoreDisplay = 'BUST'; scoreCls = 'bust'; }
   else if (d.isMiss) { scoreDisplay = 'MISS'; scoreCls = 'miss'; }
-  else if (d.isNotable) scoreCls = 'notable';
+  else { scoreDisplay = fmtScore(d.score); if (d.isNotable) scoreCls = 'notable'; }
   pad.innerHTML = `
     <div class="opp-action-notification">
       <div class="opp-action-label"><span class="opp-turn">●</span> ${throwerLabel} ${action}</div>
@@ -1739,8 +1788,8 @@ function submitTurn(type) {
     if (isNaN(score) || score < 0 || score > 180) return;
     const after = match.userScore - score;
     if (after < 0 || after === 1) { type = 'bust'; score = 0; }
-    else if (after === 0) { type = 'checkout'; if (score >= 100) notable = String(score); }
-    else if (score >= 95) notable = String(score);
+    else if (after === 0) { type = 'checkout'; if (score >= 100 || /69$/.test(String(score))) notable = String(score); }
+    else if (score >= 95 || /69$/.test(String(score))) notable = String(score);
   }
 
   match.userTurns.push({ score, type, notable });
@@ -1756,7 +1805,10 @@ function submitTurn(type) {
     notableValue: notable || ''
   };
 
-  if (notable && type !== 'bust') flashNotable(notable);
+  if (notable && type !== 'bust') {
+    flashNotable(notable);
+    match.afterUserNotableFlash = true;
+  }
 
   if (type === 'checkout' || match.userScore === 0) {
     match.status = 'user_won';
@@ -1807,7 +1859,15 @@ function playOpponentTurn() {
   };
   match.padLocked = true;
 
-  if (turn.isNotable && !turn.isBust && !turn.isMiss) flashNotable(turn.notableValue);
+  // Treat 69-ending scores as notable on top of whatever the CSV said.
+  const score69 = !turn.isBust && !turn.isMiss && /69$/.test(String(turn.score));
+  if (score69 && !turn.isNotable) {
+    match.oppLastThrow.isNotable = true;
+    match.oppLastThrow.notableValue = String(turn.score);
+  }
+  let didFlash = false;
+  if (turn.isNotable && !turn.isBust && !turn.isMiss) { flashNotable(turn.notableValue); didFlash = true; }
+  else if (score69) { flashNotable(String(turn.score)); didFlash = true; }
 
   if (turn.isCheckout || match.opponentScore === 0) {
     match.status = 'opponent_won';
@@ -1825,12 +1885,15 @@ function playOpponentTurn() {
   renderMatch();
 
   // After the hold, unlock the pad so the user keypad returns. The badge stays.
+  // Notable throws get a longer hold so the gold flash gets to breathe before
+  // the keypad reappears.
+  const holdMs = didFlash ? 2400 : 1500;
   match.autoPlayTimer = setTimeout(() => {
     if (!match) return;
     match.autoPlayTimer = null;
     match.padLocked = false;
     renderMatch();
-  }, 1500);
+  }, holdMs);
 }
 
 function advanceThrower() {
@@ -2031,7 +2094,7 @@ function closeModal() { document.getElementById('modal-host').innerHTML = ''; }
 function flashNotable(value) {
   const div = document.createElement('div');
   div.className = 'notable-flash';
-  div.innerHTML = `<div class="notable-flash-text">${value}</div>`;
+  div.innerHTML = `<div class="notable-flash-text">${fmtScore(value)}</div>`;
   document.body.appendChild(div);
   setTimeout(() => div.remove(), 1700);
 }
