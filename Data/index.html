@@ -437,17 +437,57 @@
     border-radius: 4px;
     flex-shrink: 0;
   }
+  .remaining-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
   .remaining {
     font-family: var(--display);
     font-weight: 700;
     font-size: 76px;
     line-height: 0.85;
     letter-spacing: -0.02em;
-    margin-bottom: 16px;
     font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
   .player-col.user .remaining { color: var(--text); }
   .player-col.opponent .remaining { color: var(--text); }
+  .last-throw {
+    display: none;
+    flex-direction: column;
+    align-items: flex-end;
+    text-align: right;
+    color: var(--gold);
+    font-weight: 600;
+    padding-bottom: 6px;
+    animation: lastThrowIn 0.25s ease-out;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  .last-throw.visible { display: flex; }
+  .last-throw .lt-label {
+    font-size: 13px;
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .last-throw .lt-value {
+    font-family: var(--display);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+  }
+  .last-throw.bust .lt-value { color: var(--red); font-size: 22px; }
+  .last-throw.miss .lt-value { color: var(--text-3); font-size: 22px; }
+  @keyframes lastThrowIn {
+    from { opacity: 0; transform: translateX(8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
   .turns-list {
     font-family: var(--mono);
     font-size: 11px;
@@ -611,46 +651,32 @@
     box-shadow: none;
   }
 
-  .opp-turn-display { text-align: center; padding: 20px 0; }
-  .opp-turn-score {
-    font-family: var(--display);
-    font-size: 72px;
-    font-weight: 700;
-    color: var(--red);
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-    margin-bottom: 8px;
+  .opp-action-notification {
+    text-align: center;
+    padding: 18px 12px 14px;
   }
-  .opp-turn-score.bust { color: var(--red); font-size: 48px; }
-  .opp-turn-score.miss { color: var(--text-3); font-size: 48px; }
-  .opp-turn-score.notable { color: var(--gold); }
-  .opp-turn-label {
+  .opp-action-label {
     font-family: var(--mono);
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.15em;
     color: var(--text-3);
-    margin-bottom: 16px;
+    margin-bottom: 12px;
   }
-  .opp-turn-label .notable-tag { color: var(--gold); }
-  .continue-btn {
-    width: 100%;
-    background: var(--red);
-    color: white;
-    border: 1px solid var(--red);
-    font-family: var(--mono);
+  .opp-action-label .opp-turn { color: var(--red); }
+  .opp-action-label .thrower-name { color: var(--text-2); font-weight: 600; }
+  .opp-action-score {
+    font-family: var(--display);
+    font-size: 84px;
     font-weight: 700;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    padding: 16px 0;
-    border-radius: 8px;
-    transition: all 0.1s;
+    color: var(--text);
+    line-height: 0.9;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
-  .continue-btn:hover, .continue-btn:active {
-    background: #b91c1c;
-    box-shadow: 0 0 20px var(--red-glow);
-  }
+  .opp-action-score.bust { color: var(--red); font-size: 56px; }
+  .opp-action-score.miss { color: var(--text-3); font-size: 56px; }
+  .opp-action-score.notable { color: var(--gold); }
 
   .end-banner {
     text-align: center;
@@ -862,10 +888,14 @@
 
   @media (max-width: 480px) {
     .screen { padding: 16px 14px 24px; }
-    .remaining { font-size: 60px; }
+    .remaining { font-size: 54px; }
+    .last-throw .lt-label { font-size: 11px; }
+    .last-throw .lt-value { font-size: 22px; }
+    .last-throw.bust .lt-value, .last-throw.miss .lt-value { font-size: 18px; }
     .end-banner .result { font-size: 56px; }
-    .opp-turn-score { font-size: 56px; }
     .notable-flash-text { font-size: 72px; }
+    .opp-action-score { font-size: 64px; }
+    .opp-action-score.bust, .opp-action-score.miss { font-size: 44px; }
     .qk { font-size: 11px; padding: 8px 0; }
     .np { font-size: 20px; padding: 12px 0; }
     .format-tab { font-size: 10px; padding: 10px 4px; }
@@ -938,7 +968,10 @@
         <div class="player-col-name">You</div>
         <div class="player-col-tag" id="user-tag">Throwing 1st</div>
       </div>
-      <div class="remaining" id="user-remaining">501</div>
+      <div class="remaining-row">
+        <div class="remaining" id="user-remaining">501</div>
+        <div class="last-throw" id="user-last-throw"></div>
+      </div>
       <div class="turns-list" id="user-turns"></div>
     </div>
     <div class="player-col opponent" id="opp-col">
@@ -946,7 +979,10 @@
         <div class="player-col-name" id="opp-name">Opponent</div>
         <div class="player-col-tag" id="opp-tag">Throwing 2nd</div>
       </div>
-      <div class="remaining" id="opp-remaining">501</div>
+      <div class="remaining-row">
+        <div class="remaining" id="opp-remaining">501</div>
+        <div class="last-throw" id="opp-last-throw"></div>
+      </div>
       <div class="turns-list" id="opp-turns"></div>
     </div>
   </div>
@@ -1500,7 +1536,12 @@ function startMatch(teamKey) {
     currentThrower: opponentGoesFirst ? 'opponent' : 'user',
     turnNumber: 1,
     status: 'in_progress',
-    inputScore: ''
+    inputScore: '',
+    oppLastThrow: null,
+    userLastThrow: null,
+    padLocked: false,
+    autoPlayTimer: null,
+    endHandled: false
   };
 
   showScreen('match');
@@ -1532,6 +1573,22 @@ function renderMatch() {
   document.getElementById('user-turns').innerHTML = renderTurnsList(match.userTurns, false);
   document.getElementById('opp-turns').innerHTML = renderTurnsList(match.revealedOppTurns, true);
 
+  // Last-throw badges on both columns
+  const setBadge = (elId, d) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (!d) { el.className = 'last-throw'; el.innerHTML = ''; return; }
+    let display = d.score;
+    let extraCls = '';
+    if (d.isBust) { display = 'BUST'; extraCls = 'bust'; }
+    else if (d.isMiss) { display = 'MISS'; extraCls = 'miss'; }
+    else if (d.isCheckout) display = `${d.score} ✓`;
+    el.className = `last-throw visible ${extraCls}`.trim();
+    el.innerHTML = `<div class="lt-label">Last Throw:</div><div class="lt-value">${display}</div>`;
+  };
+  setBadge('user-last-throw', match.userLastThrow);
+  setBadge('opp-last-throw', match.oppLastThrow);
+
   setTimeout(() => {
     const ul = document.getElementById('user-turns');
     const ol = document.getElementById('opp-turns');
@@ -1540,6 +1597,14 @@ function renderMatch() {
   }, 50);
 
   renderPad();
+
+  // Auto-schedule the opponent's next throw whenever we land in their turn
+  if (match.status === 'in_progress'
+      && match.currentThrower === 'opponent'
+      && !match.padLocked
+      && !match.autoPlayTimer) {
+    scheduleOpponentAutoPlay(450);
+  }
 }
 
 function renderTurnsList(turns, showThrower) {
@@ -1567,8 +1632,9 @@ function renderTurnsList(turns, showThrower) {
 function renderPad() {
   const pad = document.getElementById('pad-area');
   if (match.status !== 'in_progress') { pad.innerHTML = ''; return; }
-  if (match.currentThrower === 'opponent') renderOpponentPad();
-  else renderUserPad();
+  if (match.padLocked) { renderWaitingPad(); return; }
+  if (match.currentThrower === 'opponent') { renderThinkingPad(); return; }
+  renderUserPad();
 }
 
 function renderUserPad() {
@@ -1621,27 +1687,35 @@ function renderUserPad() {
   `;
 }
 
-function renderOpponentPad() {
+function renderWaitingPad() {
   const pad = document.getElementById('pad-area');
-  const turn = match.game.turns[match.opponentTurnIndex];
-  if (!turn) { pad.innerHTML = ''; return; }
-  let scoreCls = '';
-  let scoreText = turn.score;
+  const d = match.oppLastThrow;
+  if (!d) { pad.innerHTML = ''; return; }
   const throwerLabel = match.team.players.length > 1
-    ? `<span class="thrower-name">${turn.thrower}</span> threw`
-    : `${match.opponent} threw`;
-  let label = throwerLabel;
-  if (turn.isBust) { scoreCls = 'bust'; scoreText = 'BUST'; label = throwerLabel.replace('threw', 'busted'); }
-  else if (turn.isMiss) { scoreCls = 'miss'; scoreText = 'MISS'; label = throwerLabel.replace('threw', 'missed'); }
-  else if (turn.isNotable) { scoreCls = 'notable'; label = `${throwerLabel} <span class="notable-tag">— ${turn.notableValue}</span>`; }
-
+    ? `<span class="thrower-name">${d.thrower}</span>`
+    : `<span class="thrower-name">${match.opponent}</span>`;
+  let action = 'threw';
+  if (d.isBust) action = 'busted';
+  else if (d.isMiss) action = 'missed';
+  let scoreDisplay = d.score;
+  let scoreCls = '';
+  if (d.isBust) { scoreDisplay = 'BUST'; scoreCls = 'bust'; }
+  else if (d.isMiss) { scoreDisplay = 'MISS'; scoreCls = 'miss'; }
+  else if (d.isNotable) scoreCls = 'notable';
   pad.innerHTML = `
-    <div class="pad-prompt"><span class="opp-turn">●</span> ${label}</div>
-    <div class="opp-turn-display">
-      <div class="opp-turn-score ${scoreCls}">${scoreText}</div>
-      <div class="opp-turn-label">leaves <span style="color:var(--text-2);font-weight:600">${turn.remainingAfter}</span></div>
+    <div class="opp-action-notification">
+      <div class="opp-action-label"><span class="opp-turn">●</span> ${throwerLabel} ${action}</div>
+      <div class="opp-action-score ${scoreCls}">${scoreDisplay}</div>
     </div>
-    <button class="continue-btn" onclick="acceptOpponentTurn()">Continue →</button>
+  `;
+}
+
+function renderThinkingPad() {
+  const pad = document.getElementById('pad-area');
+  pad.innerHTML = `
+    <div class="opp-action-notification">
+      <div class="opp-action-label"><span class="opp-turn">●</span> ${match.opponent} is throwing...</div>
+    </div>
   `;
 }
 
@@ -1653,7 +1727,7 @@ function digit(d) {
 }
 function del() { match.inputScore = match.inputScore.slice(0, -1); renderPad(); }
 function clearInput() { match.inputScore = ''; renderPad(); }
-function quickKey(v) { match.inputScore = String(v); renderPad(); }
+function quickKey(v) { match.inputScore = String(v); submitTurn('normal'); }
 
 function submitTurn(type) {
   if (match.currentThrower !== 'user') return;
@@ -1673,6 +1747,15 @@ function submitTurn(type) {
   if (type === 'normal' || type === 'checkout') match.userScore -= score;
   match.inputScore = '';
 
+  match.userLastThrow = {
+    score, type,
+    isBust: type === 'bust',
+    isMiss: type === 'miss',
+    isCheckout: type === 'checkout',
+    isNotable: !!notable,
+    notableValue: notable || ''
+  };
+
   if (notable && type !== 'bust') flashNotable(notable);
 
   if (type === 'checkout' || match.userScore === 0) {
@@ -1681,9 +1764,20 @@ function submitTurn(type) {
     return;
   }
   advanceThrower();
+  renderMatch();
 }
 
-function acceptOpponentTurn() {
+function scheduleOpponentAutoPlay(delayMs) {
+  if (match.autoPlayTimer) clearTimeout(match.autoPlayTimer);
+  match.autoPlayTimer = setTimeout(() => {
+    if (!match) return;
+    match.autoPlayTimer = null;
+    playOpponentTurn();
+  }, delayMs);
+}
+
+function playOpponentTurn() {
+  if (!match || match.status !== 'in_progress') return;
   if (match.currentThrower !== 'opponent') return;
   const turn = match.game.turns[match.opponentTurnIndex];
   if (!turn) return;
@@ -1702,14 +1796,41 @@ function acceptOpponentTurn() {
   if (type === 'normal' || type === 'checkout') match.opponentScore = turn.remainingAfter;
   else match.opponentScore = turn.remainingBefore;
 
+  match.oppLastThrow = {
+    score: turn.score, type,
+    isBust: turn.isBust,
+    isMiss: turn.isMiss,
+    isCheckout: turn.isCheckout,
+    isNotable: turn.isNotable,
+    notableValue: turn.notableValue,
+    thrower: turn.thrower
+  };
+  match.padLocked = true;
+
   if (turn.isNotable && !turn.isBust && !turn.isMiss) flashNotable(turn.notableValue);
 
   if (turn.isCheckout || match.opponentScore === 0) {
     match.status = 'opponent_won';
-    endMatch();
+    renderMatch();
+    // Hold the winning throw display briefly before ending
+    match.autoPlayTimer = setTimeout(() => {
+      if (!match) return;
+      match.autoPlayTimer = null;
+      endMatch();
+    }, 2200);
     return;
   }
+
   advanceThrower();
+  renderMatch();
+
+  // After the hold, unlock the pad so the user keypad returns. The badge stays.
+  match.autoPlayTimer = setTimeout(() => {
+    if (!match) return;
+    match.autoPlayTimer = null;
+    match.padLocked = false;
+    renderMatch();
+  }, 1500);
 }
 
 function advanceThrower() {
@@ -1720,36 +1841,65 @@ function advanceThrower() {
     if (match.currentThrower === 'user') match.currentThrower = 'opponent';
     else { match.currentThrower = 'user'; match.turnNumber++; }
   }
-  renderMatch();
 }
 
 function undoLastTurn() {
   if (!match || match.status !== 'in_progress') return;
-  let lastThrower;
-  if (match.opponentGoesFirst) lastThrower = match.currentThrower === 'opponent' ? 'user' : 'opponent';
-  else lastThrower = match.currentThrower === 'user' ? 'opponent' : 'user';
+  if (match.autoPlayTimer) { clearTimeout(match.autoPlayTimer); match.autoPlayTimer = null; }
+  match.padLocked = false;
 
-  if (lastThrower === 'user') {
-    if (match.userTurns.length === 0) return;
-    const last = match.userTurns.pop();
-    if (last.type === 'normal' || last.type === 'checkout') match.userScore += last.score;
-  } else {
-    if (match.revealedOppTurns.length === 0) return;
-    match.revealedOppTurns.pop();
-    match.opponentTurnIndex--;
-    const turnData = match.game.turns[match.opponentTurnIndex];
-    if (turnData) match.opponentScore = turnData.remainingBefore;
-    else match.opponentScore = match.startScore;
-  }
+  const undoOne = () => {
+    let lastThrower;
+    if (match.opponentGoesFirst) lastThrower = match.currentThrower === 'opponent' ? 'user' : 'opponent';
+    else lastThrower = match.currentThrower === 'user' ? 'opponent' : 'user';
 
-  if (match.opponentGoesFirst) {
-    if (match.currentThrower === 'opponent') { match.currentThrower = 'user'; match.turnNumber--; }
-    else match.currentThrower = 'opponent';
-  } else {
-    if (match.currentThrower === 'user') { match.currentThrower = 'opponent'; match.turnNumber--; }
-    else match.currentThrower = 'user';
+    if (lastThrower === 'user') {
+      if (match.userTurns.length === 0) return false;
+      const last = match.userTurns.pop();
+      if (last.type === 'normal' || last.type === 'checkout') match.userScore += last.score;
+    } else {
+      if (match.revealedOppTurns.length === 0) return false;
+      match.revealedOppTurns.pop();
+      match.opponentTurnIndex--;
+      const turnData = match.game.turns[match.opponentTurnIndex];
+      if (turnData) match.opponentScore = turnData.remainingBefore;
+      else match.opponentScore = match.startScore;
+    }
+    if (match.opponentGoesFirst) {
+      if (match.currentThrower === 'opponent') { match.currentThrower = 'user'; match.turnNumber--; }
+      else match.currentThrower = 'opponent';
+    } else {
+      if (match.currentThrower === 'user') { match.currentThrower = 'opponent'; match.turnNumber--; }
+      else match.currentThrower = 'user';
+    }
+    return true;
+  };
+
+  // Undo the most recent turn. If we just undid an opponent's turn, also undo
+  // the user's preceding turn so they land back at their own input prompt
+  // (this makes the button feel like "rewind one round").
+  if (!undoOne()) { recomputeLastThrows(); renderMatch(); return; }
+  if (match.currentThrower === 'opponent' && match.userTurns.length > 0) {
+    undoOne();
   }
+  recomputeLastThrows();
   renderMatch();
+}
+
+// Rebuild the last-throw badges from the surviving turn history.
+// Called after undo so the badges reflect whatever's still on the books.
+function recomputeLastThrows() {
+  const toBadge = (t) => t ? {
+    score: t.score, type: t.type,
+    isBust: t.type === 'bust',
+    isMiss: t.type === 'miss',
+    isCheckout: t.type === 'checkout',
+    isNotable: !!t.notable,
+    notableValue: t.notable || '',
+    thrower: t.thrower
+  } : null;
+  match.userLastThrow = toBadge(match.userTurns[match.userTurns.length - 1]);
+  match.oppLastThrow = toBadge(match.revealedOppTurns[match.revealedOppTurns.length - 1]);
 }
 
 function confirmConcede() {
@@ -1763,6 +1913,10 @@ function confirmConcede() {
 // END OF MATCH
 // ============================================================
 function endMatch() {
+  if (!match || match.endHandled) return;
+  match.endHandled = true;
+  if (match.autoPlayTimer) { clearTimeout(match.autoPlayTimer); match.autoPlayTimer = null; }
+  match.padLocked = false;
   const won = match.status === 'user_won';
 
   const userScored = match.userTurns.filter(t => t.type === 'normal' || t.type === 'checkout');
