@@ -202,6 +202,95 @@
     border-color: var(--text);
   }
 
+  /* === SKILL LEVEL PILLS === */
+  .level-pills {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 6px;
+  }
+  .level-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 11px 4px;
+    border-radius: 6px;
+    color: var(--text-3);
+    transition: all 0.15s;
+    line-height: 1.3;
+    text-align: center;
+  }
+  .level-pill .lvl-sub {
+    display: block;
+    font-size: 9px;
+    color: var(--text-4);
+    margin-top: 2px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .level-pill.active {
+    background: var(--bg);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--border-2);
+  }
+  .level-pill.active .lvl-sub { color: var(--gold); }
+  .level-pill.disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* === RANDOM OPPONENT GRID === */
+  .random-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .random-grid .random-any { grid-column: 1 / -1; }
+  .random-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.15s;
+    width: 100%;
+  }
+  .random-card:hover { border-color: var(--border-2); background: var(--bg-3); }
+  .random-card.featured { border-color: var(--red); background: linear-gradient(135deg, rgba(220, 38, 38, 0.08), transparent); }
+  .random-card.featured:hover { border-color: var(--red); }
+  .random-card.disabled { opacity: 0.4; cursor: not-allowed; }
+  .random-card.disabled:hover { background: var(--bg-2); border-color: var(--border); }
+  .random-card .name {
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .random-card.random-any .name { font-size: 20px; }
+  .random-card .meta {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+  }
+  .random-card .play-icon {
+    font-family: var(--display);
+    font-size: 20px;
+    color: var(--text-3);
+  }
+  .random-card:hover .play-icon { color: var(--text); }
+
   .throw-order {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -314,6 +403,7 @@
     flex-shrink: 0;
   }
   .player-picker-row .stats .games { color: var(--text-2); }
+  .player-picker-row .stats .ppr { color: var(--gold); font-weight: 600; margin-right: 8px; }
   .player-picker-row .stats .h2h { margin-left: 12px; }
   .player-picker-row .stats .h2h .w { color: var(--green); }
   .player-picker-row .stats .h2h .l { color: var(--red); }
@@ -964,19 +1054,14 @@
       <div class="season-pills" id="season-pills"></div>
     </div>
 
+    <div class="section-label">Filter Player Library by Skill Level</div>
+    <div class="level-pills" id="level-pills"></div>
+
     <div class="section-label">Who Throws First?</div>
     <div class="throw-order" id="throw-order"></div>
 
-    <div class="section-label">Start a Match</div>
-    <div class="opponent-grid">
-      <button class="opponent-card featured" onclick="startMatch(null)">
-        <div>
-          <div class="name">Random Opponent</div>
-          <div class="meta" id="random-meta">Drawn from your pool</div>
-        </div>
-        <div class="play-icon">▶</div>
-      </button>
-    </div>
+    <div class="section-label">Random Opponent</div>
+    <div class="random-grid" id="random-grid"></div>
 
     <div class="section-label">Or Pick One</div>
     <input type="text" class="search-input" id="player-search" placeholder="Search opponents..." oninput="filterPlayerList()">
@@ -1102,6 +1187,27 @@ const THROW_ORDERS = [
   { key: 'opponent', label: 'Opponent first', icon: '▼' }
 ];
 
+// Skill brackets keyed off the thrower's 3-dart average (a.k.a. PPR).
+// Cutoffs derived from actual division means: midpoint between A & B = ~48,
+// B & C = ~41, C & D = ~36, all rounded to clean numbers.
+// Each level has min inclusive, max exclusive; null = open-ended.
+const LEVELS = [
+  { key: 'A', label: 'A-Level', range: '≥ 48 3DA',   min: 48,   max: null },
+  { key: 'B', label: 'B-Level', range: '41 – 48 3DA', min: 41,   max: 48 },
+  { key: 'C', label: 'C-Level', range: '36 – 41 3DA', min: 36,   max: 41 },
+  { key: 'D', label: 'D-Level', range: '< 36 3DA',   min: null, max: 36 }
+];
+
+function levelFor(ppr) {
+  if (ppr == null || isNaN(ppr)) return null;
+  for (const lvl of LEVELS) {
+    const aboveMin = lvl.min == null || ppr >= lvl.min;
+    const belowMax = lvl.max == null || ppr < lvl.max;
+    if (aboveMin && belowMax) return lvl.key;
+  }
+  return null;
+}
+
 // Render a numeric score. Anything ending in "69" — the inside joke — gets
 // pink-treated and wrapped in a heart outline. Pass anything else through
 // untouched. Accepts a number or stringy value; returns an HTML fragment.
@@ -1114,13 +1220,13 @@ function fmtScore(value) {
 // ============================================================
 // STATE
 // ============================================================
-const KEY_DATA  = 'dartbot_data_v3';
+const KEY_DATA  = 'dartbot_data_v4';
 const KEY_STATS = 'dartbot_stats_v2';
-const KEY_PREFS = 'dartbot_prefs_v2';
+const KEY_PREFS = 'dartbot_prefs_v3';
 
 let opponents = {};  // { format: { teamKey: { teamKey, players, games } } }
 let stats = { matches: [], versus: {} };
-let prefs = { format: 'Singles 501 SIDO', throwOrder: 'recorded', season: null };
+let prefs = { format: 'Singles 501 SIDO', throwOrder: 'recorded', season: null, level: null };
 let match = null;
 
 // ============================================================
@@ -1186,11 +1292,18 @@ function organizeData(rows) {
         teamGoesFirst: row.goes_first === '1',
         teamDisplay: row.team_display || '',
         playerOrder: [],
+        playerPPRs: {},  // { playerName: ppr } — first non-empty value wins
         turns: []
       };
     }
     const g = games[compoundId];
     if (!g.playerOrder.includes(row.player_name)) g.playerOrder.push(row.player_name);
+    // Capture each player's season PPR. Rows for the same player repeat the
+    // same value across all their turns; the first one is enough.
+    if (g.playerPPRs[row.player_name] === undefined) {
+      const pprNum = parseFloat(row.ppr);
+      if (!isNaN(pprNum)) g.playerPPRs[row.player_name] = pprNum;
+    }
     g.turns.push({
       turnNumber: parseInt(row.turn_number),
       thrower: row.player_name,
@@ -1212,8 +1325,14 @@ function organizeData(rows) {
     if (!last || last.remainingAfter !== 0) continue;
     if (!FORMATS.find(f => f.key === g.format)) continue;
 
-    // Prefer the canonical team_display column. Falls back to throw-order
-    // for older CSVs that lack the column.
+    // Average of player PPRs in this game — that's the "team PPR" for
+    // filtering. For singles this just equals the lone player's PPR.
+    const pprList = Object.values(g.playerPPRs).filter(p => !isNaN(p));
+    g.teamPPR = pprList.length > 0
+      ? pprList.reduce((s, p) => s + p, 0) / pprList.length
+      : null;
+    g.level = levelFor(g.teamPPR);
+
     const teamKey = g.teamDisplay || g.playerOrder.join(' & ');
     if (!out[g.format]) out[g.format] = {};
     if (!out[g.format][teamKey]) {
@@ -1226,6 +1345,17 @@ function organizeData(rows) {
     }
     out[g.format][teamKey].games.push(g);
   }
+
+  // Compute each team's average PPR (across the games it appears in)
+  // and derived level — used for filtering and display on the picker card.
+  for (const fmt of Object.values(out)) {
+    for (const team of Object.values(fmt)) {
+      const ppr = team.games.map(g => g.teamPPR).filter(p => p != null);
+      team.teamPPR = ppr.length > 0 ? ppr.reduce((s, p) => s + p, 0) / ppr.length : null;
+      team.level = levelFor(team.teamPPR);
+    }
+  }
+
   return out;
 }
 
@@ -1398,7 +1528,9 @@ function renderSetup() {
 
   renderFormatTabs();
   renderSeasonPills();
+  renderLevelPills();
   renderThrowOrder();
+  renderRandomGrid();
   renderPlayerList();
   renderStatsPanel();
 }
@@ -1419,6 +1551,8 @@ function selectFormat(key) {
   prefs.format = key;
   savePrefs();
   renderFormatTabs();
+  renderLevelPills();
+  renderRandomGrid();
   renderPlayerList();
 }
 
@@ -1442,6 +1576,61 @@ function selectSeason(season) {
   prefs.season = season;
   savePrefs();
   renderSeasonPills();
+  renderLevelPills();
+  renderRandomGrid();
+  renderPlayerList();
+}
+
+// Count teams in current format/season that fall into each level
+function teamsByLevel() {
+  const teams = opponents[prefs.format] || {};
+  const counts = { A: 0, B: 0, C: 0, D: 0, all: 0 };
+  for (const t of Object.values(teams)) {
+    const games = gamesForTeam(t);
+    if (games.length === 0) continue;
+    counts.all++;
+    if (t.level && counts[t.level] !== undefined) counts[t.level]++;
+  }
+  return counts;
+}
+
+// Overall 3DA range (min/max rounded to whole numbers) across the eligible
+// team pool. Used as the subtitle on the "All" pill and the Any-level random
+// button. Returns null when no teams have a known PPR.
+function overallPPRRange() {
+  const teams = opponents[prefs.format] || {};
+  const pprs = [];
+  for (const t of Object.values(teams)) {
+    if (gamesForTeam(t).length === 0) continue;
+    if (t.teamPPR != null) pprs.push(t.teamPPR);
+  }
+  if (pprs.length === 0) return null;
+  return { min: Math.round(Math.min(...pprs)), max: Math.round(Math.max(...pprs)) };
+}
+
+function renderLevelPills() {
+  const counts = teamsByLevel();
+  const range = overallPPRRange();
+  const allSub = range ? `${range.min} – ${range.max} 3DA` : 'All 3DAs';
+  const el = document.getElementById('level-pills');
+  const pills = [
+    `<button class="level-pill ${prefs.level === null ? 'active' : ''}" onclick="selectLevel(null)">All<span class="lvl-sub">${allSub}</span></button>`,
+    ...LEVELS.map(lvl => {
+      const c = counts[lvl.key];
+      const disabled = c === 0 ? 'disabled' : '';
+      const onclick = c === 0 ? '' : `onclick="selectLevel('${lvl.key}')"`;
+      const active = prefs.level === lvl.key ? 'active' : '';
+      return `<button class="level-pill ${active} ${disabled}" ${onclick}>${lvl.label}<span class="lvl-sub">${lvl.range}</span></button>`;
+    })
+  ];
+  el.innerHTML = pills.join('');
+}
+
+function selectLevel(level) {
+  prefs.level = level;
+  savePrefs();
+  renderLevelPills();
+  renderRandomGrid();
   renderPlayerList();
 }
 
@@ -1460,16 +1649,54 @@ function selectThrowOrder(key) {
   renderThrowOrder();
 }
 
-function updateRandomMeta() {
-  const teams = opponents[prefs.format] || {};
-  let teamCount = 0, gameCount = 0;
-  for (const t of Object.values(teams)) {
-    const games = gamesForTeam(t);
-    if (games.length > 0) { teamCount++; gameCount += games.length; }
-  }
+// Build the random-opponent button grid: "Any" (full width) plus 4 level-specific buttons.
+function renderRandomGrid() {
+  const counts = teamsByLevel();
+  const range = overallPPRRange();
+  const el = document.getElementById('random-grid');
   const seasonLabel = prefs.season ? ` · ${seasonDisplay(prefs.season)}` : '';
-  const el = document.getElementById('random-meta');
-  if (el) el.textContent = `Drawn from ${gameCount} games · ${teamCount} opponents${seasonLabel}`;
+  const allMeta = range
+    ? `Any level · ${range.min} – ${range.max} 3DA${seasonLabel}`
+    : `Any level${seasonLabel}`;
+  const cards = [
+    `<button class="random-card random-any featured" onclick="randomMatch(null)">
+      <div>
+        <div class="name">Random Opponent</div>
+        <div class="meta">${allMeta}</div>
+      </div>
+      <div class="play-icon">▶</div>
+    </button>`,
+    ...LEVELS.map(lvl => {
+      const c = counts[lvl.key];
+      const disabled = c === 0 ? 'disabled' : '';
+      const onclick = c === 0 ? '' : `onclick="randomMatch('${lvl.key}')"`;
+      return `<button class="random-card ${disabled}" ${onclick}>
+        <div>
+          <div class="name">Random ${lvl.label}</div>
+          <div class="meta">${lvl.range}</div>
+        </div>
+        <div class="play-icon">▶</div>
+      </button>`;
+    })
+  ];
+  el.innerHTML = cards.join('');
+}
+
+function randomMatch(level) {
+  // Temporarily filter by `level` for this draw, then call startMatch with null teamKey.
+  // The simplest approach: pick the team here ourselves, then call startMatch with its key.
+  const teamMap = opponents[prefs.format] || {};
+  const eligible = Object.values(teamMap).filter(t => {
+    if (gamesForTeam(t).length === 0) return false;
+    if (level && t.level !== level) return false;
+    return true;
+  });
+  if (eligible.length === 0) {
+    showModal('No Opponents', `No ${level ? level + '-level ' : ''}opponents available in ${prefs.format}${prefs.season ? ' for ' + seasonDisplay(prefs.season) : ''}.`);
+    return;
+  }
+  const team = eligible[Math.floor(Math.random() * eligible.length)];
+  startMatch(team.teamKey);
 }
 
 function renderPlayerList() {
@@ -1483,26 +1710,33 @@ function renderPlayerList() {
         team: t,
         display,
         gameCount: filteredGames.length,
+        ppr: t.teamPPR,
+        level: t.level,
         h2h: stats.versus[display] || { wins: 0, losses: 0 }
       };
     })
     .filter(t => t.gameCount > 0)
+    .filter(t => !prefs.level || t.level === prefs.level)
     .filter(t => !search || t.display.toLowerCase().includes(search))
-    .sort((a, b) => b.gameCount - a.gameCount);
+    .sort((a, b) => (b.ppr ?? -1) - (a.ppr ?? -1));
+
+  const emptyMsg = prefs.level
+    ? `No ${prefs.level}-level opponents in this format${prefs.season ? ' for ' + seasonDisplay(prefs.season) : ''}`
+    : `No opponents in this format${prefs.season ? ' for ' + seasonDisplay(prefs.season) : ''}`;
 
   document.getElementById('player-picker').innerHTML = arr.length === 0
-    ? `<div style="padding:20px;text-align:center;color:var(--text-3);font-family:var(--mono);font-size:12px">No opponents in this format${prefs.season ? ' for ' + seasonDisplay(prefs.season) : ''}</div>`
+    ? `<div style="padding:20px;text-align:center;color:var(--text-3);font-family:var(--mono);font-size:12px">${emptyMsg}</div>`
     : arr.map(t => {
         const h2hHtml = (t.h2h.wins + t.h2h.losses) > 0
           ? `<span class="h2h"><span class="w">${t.h2h.wins}W</span>-<span class="l">${t.h2h.losses}L</span></span>` : '';
+        const pprHtml = t.ppr != null
+          ? `<span class="ppr">${t.ppr.toFixed(1)} 3DA</span>` : '';
         const safeKey = t.team.teamKey.replace(/'/g, "\\'");
         return `<div class="player-picker-row" onclick="startMatch('${safeKey}')">
           <div class="name">${t.display}</div>
-          <div class="stats"><span class="games">${t.gameCount} games</span>${h2hHtml}</div>
+          <div class="stats">${pprHtml}<span class="games">${t.gameCount} games</span>${h2hHtml}</div>
         </div>`;
       }).join('');
-
-  updateRandomMeta();
 }
 
 function filterPlayerList() { renderPlayerList(); }
